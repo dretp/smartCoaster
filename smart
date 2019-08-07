@@ -1,0 +1,76 @@
+import time
+import board
+import busio
+import math
+import adafruit_ads1x15.ads1015 as ADS
+#from twilio.rest import Client
+from adafruit_ads1x15.analog_in import AnalogIn
+
+
+fullT = 550
+min_refillT = 200
+max_refillT = 480
+force = 0
+state = "NoCup"
+
+#account_sid= 'ACa0efef'
+#auth_token ='9a23f419acc95' 
+#client = Client(account_sid, auth_token)
+
+#message = client.messages.create(
+#   body="Your Cup had reach the refill point",
+#   from_='+17869712884',
+#   to='+1866098098'
+#)
+
+# Create the I2C bus
+i2c = busio.I2C(board.SCL, board.SDA)
+
+# Create the ADC object using the I2C bus
+ads = ADS.ADS1015(i2c)
+
+# Create single-ended input on channel 0
+chan = AnalogIn(ads, ADS.P0)
+
+# Create differential input between channel 0 and 1
+# chan = AnalogIn(ads, ADS.P0, ADS.P1)
+
+#print("{:>5}\t{:>5}".format('raw', 'v'))
+
+while True:
+    #print("{:>5}\t{:>5.3f}".format(chan.value, chan.voltage))
+	i = 0
+    fstart = chan.value
+	for s in range(50):
+        time.sleep(0.1)
+        force = (force + chan.value)
+        i = i + 1
+
+    deltaf = math.fabs(chan.value - fstart)
+    force = force / i
+    #force = chan.value
+    print("force: " + str(force) + "   deltaf: " + str(deltaf))
+
+    if(deltaf < 10):
+        if state == "NoCup":
+            if (max_refillT < force):
+                state = "FullCup"
+                print("Drinking")
+            elif (min_refillT < force < max_refillT):
+                state = "Refill"
+                print("Waiting Refill")
+            else:
+                print("No Cup") 
+        if state == "Refill":
+            if (force > fullT):
+                state = "FullCup"
+                print("Full Cup")
+            else:
+                print("Waiting Refill")
+        elif state == "FullCup":
+            if (min_refillT < force < max_refillT):
+                state = "Refill"
+                print("Request Refill")
+               # print(message.sid)
+            else:
+                print("Drinking")
